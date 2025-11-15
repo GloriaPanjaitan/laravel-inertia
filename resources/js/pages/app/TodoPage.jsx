@@ -11,7 +11,6 @@ import {
     CheckCircle2Icon,
     UploadIcon,
     SearchIcon,
-    FilterIcon,
     Loader2Icon,
 } from "lucide-react";
 import Swal from "sweetalert2";
@@ -247,11 +246,61 @@ export default function TodoPage() {
     useSweetAlerts();
 
     const { todos } = usePage().props;
-    const { data, links, total } = todos;
-
+    const { data, links, total, filters } = todos; 
     const [selectedTodo, setSelectedTodo] = useState(null);
 
-    const reloadTodos = () => router.reload({ only: ["todos"] });
+    // Dapatkan parameter pencarian saat ini dari URL
+    const initialSearch = filters?.search || '';
+    const initialStatus = filters?.status || 'all'; 
+
+    const [searchQuery, setSearchQuery] = useState(initialSearch);
+    const [statusFilter, setStatusFilter] = useState(initialStatus);
+
+    // Fungsi utama untuk memicu pencarian dan filter
+    const applyFilters = (newSearchQuery = searchQuery, newStatusFilter = statusFilter) => {
+        router.get(
+            '/todos', 
+            { search: newSearchQuery, status: newStatusFilter }, 
+            { 
+                preserveState: true, 
+                preserveScroll: true,
+                only: ['todos']
+            }
+        );
+    };
+
+    // Efek untuk debounce PENCARIAN (berjalan otomatis saat mengetik)
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            // Hanya jalankan Inertia visit jika query berubah
+            if (searchQuery !== initialSearch) {
+                applyFilters(searchQuery, statusFilter);
+            }
+        }, 300); // Debounce 300ms
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [searchQuery]);
+
+    // Efek untuk STATUS FILTER (berjalan segera saat tombol ditekan)
+    useEffect(() => {
+        // Cek hanya jika statusFilter berubah dari nilai awal yang dimuat dari URL
+        if (statusFilter !== initialStatus) {
+            applyFilters(searchQuery, statusFilter);
+        }
+    }, [statusFilter]);
+
+
+    const reloadTodos = () => applyFilters(searchQuery, statusFilter);
+
+    // Fungsi yang dipanggil saat tombol kaca pembesar/Enter ditekan
+    const handleSearchClick = () => {
+        // Hanya panggil applyFilters jika pencarian belum dilakukan atau filter status aktif
+        if (searchQuery !== initialSearch || statusFilter !== initialStatus) {
+            applyFilters(searchQuery, statusFilter);
+        }
+    }
 
     const handleDelete = (id) => {
         Swal.fire({
@@ -276,6 +325,16 @@ export default function TodoPage() {
 
     const finishedTodos = data.filter((t) => t.is_finished).length;
 
+    const FilterButton = ({ label, status, activeStatus }) => (
+        <Button
+            variant={status === activeStatus ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter(status)}
+        >
+            {label}
+        </Button>
+    );
+
     return (
         <AppLayout>
             <div className="container mx-auto px-4 py-8 max-w-6xl">
@@ -283,20 +342,67 @@ export default function TodoPage() {
                     Manajemen Daftar Aktivitas
                 </h2>
 
-                <div className="grid lg:grid-cols-3 gap-8">
+                {/* --- BAGIAN ATAS: 2 KOLOM (Tambah Aktivitas & Statistik) --- */}
+                <div className="grid lg:grid-cols-2 gap-8">
+                    {/* Card 1: Tambah Aktivitas */}
                     <Card className="p-6">
                         <CardTitle className="mb-4 text-2xl">Tambah Aktivitas</CardTitle>
                         <AddTodoForm onAddSuccess={reloadTodos} />
                     </Card>
 
+                    {/* Card 2: Statistik Aktivitas */}
                     <TodoStats total={total} finished={finishedTodos} />
+                </div>
 
-                    <Card className="p-6">
-                        <CardTitle className="mb-4 text-2xl">Pencarian & Filter</CardTitle>
-                        <Input placeholder="Cari aktivitas..." />
+                {/* --- BAGIAN BAWAH: 1 KOLOM (Pencarian & Filter) --- */}
+                <div className="mt-8">
+                    {/* Menggunakan Card tanpa padding default, lalu CardHeader/Content memberi padding kustom */}
+                    <Card className="flex flex-col gap-3">
+                        {/* Judul "Pencarian & Filter" */}
+                        <CardHeader className="px-4 pt-4 pb-0">
+                            <CardTitle className="text-xl">Pencarian & Filter</CardTitle>
+                        </CardHeader>
+
+                        <CardContent className="px-4 pt-0 pb-4 space-y-3">
+                            
+                            {/* Input Pencarian dengan Tombol di Kanan */}
+                            <div className="flex items-center space-x-2">
+                                {/* Input Pencarian (Melebar Penuh) */}
+                                <Input
+                                    placeholder="Cari aktivitas berdasarkan judul atau deskripsi..."
+                                    className="flex-1 border h-10 bg-transparent px-3 text-base"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleSearchClick();
+                                        }
+                                    }}
+                                />
+                                
+                                {/* Tombol Pencarian (Ikon Kaca Pembesar) */}
+                                <Button
+                                    size="icon-lg" 
+                                    className="shrink-0 h-10 w-10" // Tinggi dan lebar disamakan dengan input
+                                    onClick={handleSearchClick}
+                                >
+                                    <SearchIcon className="size-5" />
+                                </Button>
+                            </div>
+
+                            {/* Filter Status (Sudah Selesai / Belum Selesai) */}
+                            <div className="flex space-x-2 pt-2 border-t mt-3">
+                                <span className="text-sm font-medium self-center text-muted-foreground">Status:</span>
+                                <FilterButton label="Semua" status="all" activeStatus={statusFilter} />
+                                <FilterButton label="Selesai" status="finished" activeStatus={statusFilter} />
+                                <FilterButton label="Belum Selesai" status="pending" activeStatus={statusFilter} />
+                            </div>
+
+                        </CardContent>
                     </Card>
                 </div>
 
+                {/* --- DAFTAR AKTIVITAS --- */}
                 <div className="mt-12">
                     <h3 className="text-3xl font-bold mb-6">Daftar Aktivitas ({total})</h3>
 
@@ -348,6 +454,7 @@ export default function TodoPage() {
                         ))}
                     </div>
 
+                    {/* Pagination */}
                     {links.length > 3 && (
                         <div className="flex justify-center mt-8 space-x-1">
                             {links.map((link, i) => (
@@ -362,11 +469,14 @@ export default function TodoPage() {
                                             ? "hover:bg-gray-100"
                                             : "opacity-50 cursor-not-allowed"
                                     }`}
+                                    preserveState
+                                    preserveScroll
                                 />
                             ))}
                         </div>
                     )}
 
+                    {/* Pesan Tidak Ada Aktivitas */}
                     {data.length === 0 && (
                         <div className="text-center py-12 text-muted-foreground border rounded-xl mt-6">
                             <CheckCircle2Icon className="size-12 mx-auto mb-3" />
