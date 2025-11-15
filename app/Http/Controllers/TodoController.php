@@ -36,7 +36,7 @@ class TodoController extends Controller
 
         // Mendapatkan data dengan pagination setelah filter diterapkan
         $todos = $query
-            ->paginate(15)
+            ->paginate(20)
             ->withQueryString() // Memastikan parameter filter tetap ada di pagination links
             ->through(function ($todo) {
                 // tambahkan url cover jika ada

@@ -157,14 +157,32 @@ const AddTodoForm = ({ onAddSuccess }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        Swal.fire({
+            title: "Mohon tunggu...",
+            html: "Sedang menambahkan aktivitas",
+            didOpen: () => Swal.showLoading(),
+            allowOutsideClick: false,
+        });
+
         post("/todos", {
             forceFormData: true,
             onSuccess: () => {
+                Swal.close();
                 setData("title", "");
                 setData("description", "");
                 setData("cover", null);
                 onAddSuccess();
+
+                Swal.fire({
+                    position: "top-end",
+                    icon: "success",
+                    title: "Aktivitas berhasil ditambahkan!",
+                    showConfirmButton: false,
+                    timer: 1500
+                });
             },
+            onError: () => Swal.close(),
         });
     };
 
@@ -245,7 +263,6 @@ export default function TodoPage() {
     const [searchQuery, setSearchQuery] = useState(filters?.search || '');
     const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
 
-    // Fungsi untuk memanggil backend dengan filter
     const applyFilters = (search = searchQuery, status = statusFilter) => {
         router.get(
             '/todos',
@@ -254,7 +271,6 @@ export default function TodoPage() {
         );
     };
 
-    // Debounce search
     useEffect(() => {
         const handler = setTimeout(() => {
             applyFilters(searchQuery, statusFilter);
@@ -263,7 +279,6 @@ export default function TodoPage() {
         return () => clearTimeout(handler);
     }, [searchQuery]);
 
-    // Jalankan filter saat statusFilter berubah
     useEffect(() => {
         applyFilters(searchQuery, statusFilter);
     }, [statusFilter]);
@@ -276,13 +291,25 @@ export default function TodoPage() {
 
     const handleDelete = (id) => {
         Swal.fire({
-            title: "Anda yakin?",
-            text: "Aktivitas akan dihapus permanen.",
+            title: "Are you sure?",
+            text: "You won't be able to revert this!",
             icon: "warning",
             showCancelButton: true,
-        }).then((res) => {
-            if (res.isConfirmed) {
-                router.delete(`/todos/${id}`, { onSuccess: reloadTodos });
+            confirmButtonColor: "#3085d6",
+            cancelButtonColor: "#d33",
+            confirmButtonText: "Yes, delete it!"
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.delete(`/todos/${id}`, {
+                    onSuccess: () => {
+                        reloadTodos();
+                        Swal.fire({
+                            title: "Deleted!",
+                            text: "Aktivitas berhasil dihapus.",
+                            icon: "success"
+                        });
+                    }
+                });
             }
         });
     };
@@ -314,7 +341,6 @@ export default function TodoPage() {
                     Manajemen Daftar Aktivitas
                 </h2>
 
-                {/* Tambah Aktivitas & Statistik */}
                 <div className="grid lg:grid-cols-2 gap-8">
                     <Card className="p-6">
                         <CardTitle className="mb-4 text-2xl">Tambah Aktivitas</CardTitle>
@@ -324,7 +350,6 @@ export default function TodoPage() {
                     <TodoStats total={total} finished={finishedTodos} />
                 </div>
 
-                {/* Pencarian & Filter */}
                 <div className="mt-8">
                     <Card className="flex flex-col gap-3">
                         <CardHeader className="px-4 pt-4 pb-0">
@@ -357,7 +382,6 @@ export default function TodoPage() {
                     </Card>
                 </div>
 
-                {/* Daftar Aktivitas */}
                 <div className="mt-12">
                     <h3 className="text-3xl font-bold mb-6">Daftar Aktivitas ({total})</h3>
 
@@ -398,7 +422,6 @@ export default function TodoPage() {
                         ))}
                     </div>
 
-                    {/* Pagination */}
                     {links.length > 3 && (
                         <div className="flex justify-center mt-8 space-x-1">
                             {links.map((link, i) => (
@@ -420,7 +443,6 @@ export default function TodoPage() {
                         </div>
                     )}
 
-                    {/* Tidak ada aktivitas */}
                     {data.length === 0 && (
                         <div className="text-center py-12 text-muted-foreground border rounded-xl mt-6">
                             <CheckCircle2Icon className="size-12 mx-auto mb-3" />
