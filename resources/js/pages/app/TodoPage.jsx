@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Field, FieldLabel, FieldGroup } from "@/components/ui/field";
-import {
-    Trash2Icon,
-    PencilIcon,
-    CheckCircle2Icon,
-    UploadIcon,
-    SearchIcon,
-    Loader2Icon,
-} from "lucide-react";
+import { Trash2Icon, PencilIcon, CheckCircle2Icon, UploadIcon, SearchIcon, Loader2Icon } from "lucide-react";
 import Swal from "sweetalert2";
 import ReactApexChart from "react-apexcharts";
 
@@ -42,7 +35,7 @@ const useSweetAlerts = () => {
 
 // Modal Edit
 const EditTodoModal = ({ todo, onClose, onUpdate }) => {
-    const { data, setData, put, post, processing, errors, reset } = useForm({
+    const { data, setData, put, post, processing } = useForm({
         title: todo.title,
         description: todo.description,
         is_finished: todo.is_finished,
@@ -246,61 +239,40 @@ export default function TodoPage() {
     useSweetAlerts();
 
     const { todos } = usePage().props;
-    const { data, links, total, filters } = todos; 
+    const { data, links, total, filters } = todos;
     const [selectedTodo, setSelectedTodo] = useState(null);
 
-    // Dapatkan parameter pencarian saat ini dari URL
-    const initialSearch = filters?.search || '';
-    const initialStatus = filters?.status || 'all'; 
+    const [searchQuery, setSearchQuery] = useState(filters?.search || '');
+    const [statusFilter, setStatusFilter] = useState(filters?.status || 'all');
 
-    const [searchQuery, setSearchQuery] = useState(initialSearch);
-    const [statusFilter, setStatusFilter] = useState(initialStatus);
-
-    // Fungsi utama untuk memicu pencarian dan filter
-    const applyFilters = (newSearchQuery = searchQuery, newStatusFilter = statusFilter) => {
+    // Fungsi untuk memanggil backend dengan filter
+    const applyFilters = (search = searchQuery, status = statusFilter) => {
         router.get(
-            '/todos', 
-            { search: newSearchQuery, status: newStatusFilter }, 
-            { 
-                preserveState: true, 
-                preserveScroll: true,
-                only: ['todos']
-            }
+            '/todos',
+            { search, status },
+            { preserveState: true, preserveScroll: true, only: ['todos'] }
         );
     };
 
-    // Efek untuk debounce PENCARIAN (berjalan otomatis saat mengetik)
+    // Debounce search
     useEffect(() => {
         const handler = setTimeout(() => {
-            // Hanya jalankan Inertia visit jika query berubah
-            if (searchQuery !== initialSearch) {
-                applyFilters(searchQuery, statusFilter);
-            }
-        }, 300); // Debounce 300ms
+            applyFilters(searchQuery, statusFilter);
+        }, 300);
 
-        return () => {
-            clearTimeout(handler);
-        };
+        return () => clearTimeout(handler);
     }, [searchQuery]);
 
-    // Efek untuk STATUS FILTER (berjalan segera saat tombol ditekan)
+    // Jalankan filter saat statusFilter berubah
     useEffect(() => {
-        // Cek hanya jika statusFilter berubah dari nilai awal yang dimuat dari URL
-        if (statusFilter !== initialStatus) {
-            applyFilters(searchQuery, statusFilter);
-        }
+        applyFilters(searchQuery, statusFilter);
     }, [statusFilter]);
-
 
     const reloadTodos = () => applyFilters(searchQuery, statusFilter);
 
-    // Fungsi yang dipanggil saat tombol kaca pembesar/Enter ditekan
     const handleSearchClick = () => {
-        // Hanya panggil applyFilters jika pencarian belum dilakukan atau filter status aktif
-        if (searchQuery !== initialSearch || statusFilter !== initialStatus) {
-            applyFilters(searchQuery, statusFilter);
-        }
-    }
+        applyFilters(searchQuery, statusFilter);
+    };
 
     const handleDelete = (id) => {
         Swal.fire({
@@ -325,9 +297,9 @@ export default function TodoPage() {
 
     const finishedTodos = data.filter((t) => t.is_finished).length;
 
-    const FilterButton = ({ label, status, activeStatus }) => (
+    const FilterButton = ({ label, status }) => (
         <Button
-            variant={status === activeStatus ? 'default' : 'outline'}
+            variant={status === statusFilter ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(status)}
         >
@@ -342,76 +314,56 @@ export default function TodoPage() {
                     Manajemen Daftar Aktivitas
                 </h2>
 
-                {/* --- BAGIAN ATAS: 2 KOLOM (Tambah Aktivitas & Statistik) --- */}
+                {/* Tambah Aktivitas & Statistik */}
                 <div className="grid lg:grid-cols-2 gap-8">
-                    {/* Card 1: Tambah Aktivitas */}
                     <Card className="p-6">
                         <CardTitle className="mb-4 text-2xl">Tambah Aktivitas</CardTitle>
                         <AddTodoForm onAddSuccess={reloadTodos} />
                     </Card>
 
-                    {/* Card 2: Statistik Aktivitas */}
                     <TodoStats total={total} finished={finishedTodos} />
                 </div>
 
-                {/* --- BAGIAN BAWAH: 1 KOLOM (Pencarian & Filter) --- */}
+                {/* Pencarian & Filter */}
                 <div className="mt-8">
-                    {/* Menggunakan Card tanpa padding default, lalu CardHeader/Content memberi padding kustom */}
                     <Card className="flex flex-col gap-3">
-                        {/* Judul "Pencarian & Filter" */}
                         <CardHeader className="px-4 pt-4 pb-0">
                             <CardTitle className="text-xl">Pencarian & Filter</CardTitle>
                         </CardHeader>
 
                         <CardContent className="px-4 pt-0 pb-4 space-y-3">
-                            
-                            {/* Input Pencarian dengan Tombol di Kanan */}
                             <div className="flex items-center space-x-2">
-                                {/* Input Pencarian (Melebar Penuh) */}
                                 <Input
-                                    placeholder="Cari aktivitas berdasarkan judul atau deskripsi..."
+                                    placeholder="Cari aktivitas..."
                                     className="flex-1 border h-10 bg-transparent px-3 text-base"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            handleSearchClick();
-                                        }
+                                        if (e.key === 'Enter') handleSearchClick();
                                     }}
                                 />
-                                
-                                {/* Tombol Pencarian (Ikon Kaca Pembesar) */}
-                                <Button
-                                    size="icon-lg" 
-                                    className="shrink-0 h-10 w-10" // Tinggi dan lebar disamakan dengan input
-                                    onClick={handleSearchClick}
-                                >
+                                <Button size="icon-lg" className="shrink-0 h-10 w-10" onClick={handleSearchClick}>
                                     <SearchIcon className="size-5" />
                                 </Button>
                             </div>
 
-                            {/* Filter Status (Sudah Selesai / Belum Selesai) */}
                             <div className="flex space-x-2 pt-2 border-t mt-3">
                                 <span className="text-sm font-medium self-center text-muted-foreground">Status:</span>
-                                <FilterButton label="Semua" status="all" activeStatus={statusFilter} />
-                                <FilterButton label="Selesai" status="finished" activeStatus={statusFilter} />
-                                <FilterButton label="Belum Selesai" status="pending" activeStatus={statusFilter} />
+                                <FilterButton label="Semua" status="all" />
+                                <FilterButton label="Selesai" status="finished" />
+                                <FilterButton label="Belum Selesai" status="pending" />
                             </div>
-
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* --- DAFTAR AKTIVITAS --- */}
+                {/* Daftar Aktivitas */}
                 <div className="mt-12">
                     <h3 className="text-3xl font-bold mb-6">Daftar Aktivitas ({total})</h3>
 
                     <div className="space-y-4">
                         {data.map((todo) => (
-                            <Card
-                                key={todo.id}
-                                className="flex flex-col md:flex-row justify-between p-4 shadow-md"
-                            >
+                            <Card key={todo.id} className="flex flex-col md:flex-row justify-between p-4 shadow-md">
                                 <CardContent className="flex flex-1 items-start space-x-4 p-0">
                                     <input
                                         type="checkbox"
@@ -434,19 +386,11 @@ export default function TodoPage() {
                                 </CardContent>
 
                                 <CardFooter className="flex space-x-2 p-0 mt-4 md:mt-0">
-                                    <Button
-                                        variant="secondary"
-                                        size="icon-sm"
-                                        onClick={() => setSelectedTodo(todo)}
-                                    >
+                                    <Button variant="secondary" size="icon-sm" onClick={() => setSelectedTodo(todo)}>
                                         <PencilIcon className="size-4" />
                                     </Button>
 
-                                    <Button
-                                        variant="destructive"
-                                        size="icon-sm"
-                                        onClick={() => handleDelete(todo.id)}
-                                    >
+                                    <Button variant="destructive" size="icon-sm" onClick={() => handleDelete(todo.id)}>
                                         <Trash2Icon className="size-4" />
                                     </Button>
                                 </CardFooter>
@@ -476,7 +420,7 @@ export default function TodoPage() {
                         </div>
                     )}
 
-                    {/* Pesan Tidak Ada Aktivitas */}
+                    {/* Tidak ada aktivitas */}
                     {data.length === 0 && (
                         <div className="text-center py-12 text-muted-foreground border rounded-xl mt-6">
                             <CheckCircle2Icon className="size-12 mx-auto mb-3" />
@@ -484,15 +428,15 @@ export default function TodoPage() {
                         </div>
                     )}
                 </div>
-            </div>
 
-            {selectedTodo && (
-                <EditTodoModal
-                    todo={selectedTodo}
-                    onClose={() => setSelectedTodo(null)}
-                    onUpdate={reloadTodos}
-                />
-            )}
+                {selectedTodo && (
+                    <EditTodoModal
+                        todo={selectedTodo}
+                        onClose={() => setSelectedTodo(null)}
+                        onUpdate={reloadTodos}
+                    />
+                )}
+            </div>
         </AppLayout>
     );
 }

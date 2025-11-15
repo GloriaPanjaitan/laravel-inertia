@@ -11,11 +11,33 @@ use Inertia\Inertia;
 class TodoController extends Controller
 {
     // Index: tampilkan list (paginated)
-    public function index()
+    public function index(Request $request)
     {
-        $todos = Auth::user()->todos()
-            ->latest()
+        // Mendapatkan query builder untuk todo milik pengguna saat ini
+        $query = Auth::user()->todos()->latest();
+
+        // --- Menerapkan Filter Pencarian (Search Filter) ---
+        $search = $request->input('search');
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // --- Menerapkan Filter Status (Status Filter) ---
+        $status = $request->input('status', 'all'); // Default 'all'
+        if ($status === 'finished') {
+            $query->where('is_finished', true);
+        } elseif ($status === 'pending') {
+            $query->where('is_finished', false);
+        }
+        // Jika status adalah 'all', tidak perlu menambah klausa where
+
+        // Mendapatkan data dengan pagination setelah filter diterapkan
+        $todos = $query
             ->paginate(15)
+            ->withQueryString() // Memastikan parameter filter tetap ada di pagination links
             ->through(function ($todo) {
                 // tambahkan url cover jika ada
                 return array_merge($todo->toArray(), [
@@ -23,8 +45,14 @@ class TodoController extends Controller
                 ]);
             });
 
+        // Data yang dikirim ke frontend Inertia
         return Inertia::render('app/TodoPage', [
             'todos' => $todos,
+            // Mengirim kembali filter yang aktif agar state di frontend tetap sinkron
+            'filters' => [
+                'search' => $search,
+                'status' => $status,
+            ]
         ]);
     }
 
@@ -71,6 +99,7 @@ class TodoController extends Controller
             'is_finished' => $request->has('is_finished') ? (bool) $request->is_finished : $todo->is_finished,
         ]);
 
+        // Menggunakan back() agar tetap pada halaman dan filter saat ini
         return back()->with('success', 'Aktivitas berhasil diperbarui!');
     }
 
@@ -108,6 +137,7 @@ class TodoController extends Controller
 
         $todo->delete();
 
-        return redirect()->route('todos.index')->with('success', 'Aktivitas berhasil dihapus!');
+        // Menggunakan back() agar tetap pada halaman dan filter saat ini
+        return back()->with('success', 'Aktivitas berhasil dihapus!');
     }
 }
