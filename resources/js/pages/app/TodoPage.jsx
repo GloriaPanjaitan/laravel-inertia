@@ -43,27 +43,58 @@ const EditTodoModal = ({ todo, onClose, onUpdate }) => {
     });
 
     const handleUpdate = (e) => {
-        e.preventDefault();
-        put(`/todos/${todo.id}`, {
-            onSuccess: () => {
-                onClose();
-                onUpdate();
-            },
-        });
-    };
+    e.preventDefault();
+    put(`/todos/${todo.id}`, {
+        onSuccess: () => {
+            onClose();
+            onUpdate();
+            
+            Swal.fire({
+                position: "top-end",
+                icon: "success",
+                title: "Aktivitas berhasil diperbarui!",
+                showConfirmButton: false,
+                timer: 1500,
+            });
+        },
+        onError: () => {
+            Swal.fire({
+                icon: "error",
+                title: "Gagal!",
+                text: "Aktivitas gagal diperbarui.",
+            });
+        },
+    });
+};
 
-    const handleCoverUpdate = (e) => {
-        e.preventDefault();
-        if (!data.cover) return;
+const handleCoverUpdate = (e) => {
+    e.preventDefault();
+    if (!data.cover) return;
 
-        post(`/todos/${todo.id}/cover`, {
-            forceFormData: true,
-            onSuccess: () => {
-                onClose();
-                onUpdate();
-            },
-        });
-    };
+    post(`/todos/${todo.id}/cover`, {
+        forceFormData: true,
+        onSuccess: () => {
+            onClose();
+            onUpdate();
+            
+            Swal.fire({
+                position: "top-end",
+                icon: "success",
+                title: "Cover berhasil diperbarui!",
+                showConfirmButton: false,
+                timer: 1500,
+            });
+        },
+        onError: () => {
+            Swal.fire({
+                icon: "error",
+                title: "Gagal!",
+                text: "Cover gagal diperbarui.",
+            });
+        },
+    });
+};
+
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
